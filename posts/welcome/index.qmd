@@ -1,8 +1,8 @@
 ---
-title: "Bienvenue sur mon blog !"
+title: "Informations"
 author: "JAMIN Mathilde"
 date: "2024-03-10"
 categories: [news]
 ---
 
-Bienvenue !
+Merci d'avoir visité mon blog !
