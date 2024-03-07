@@ -9,4 +9,4 @@ about:
       href: https://github.com
 ---
 
-Je m'appelle JAMIN Mathilde et je suis étudiante Master 1 Econométrie Appliquée à l'IAE de Nantes.
+Je m'appelle JAMIN Mathilde, je suis étudiante Master 1 Econométrie Appliquée à l'IAE de Nantes.

@@ -1,13 +1,51 @@
 ---
-title: "Post With Code"
-author: "Harlow Malloc"
-date: "2024-03-07"
+title: "Exercice final"
+author: "JAMIN Mathilde"
+date: "2024-03-10"
 categories: [news, code, analysis]
-image: "image.jpg"
 ---
 
-This is a post with executable code.
+## Librairie olympicsWeather
+
+Ce package nous permet d'obtenir les prévisions métérologiques à sept jours. Pour ce faire, veillez saisir une adresse complète telle que "9 Quai Henri Barbusse, Nantes, France" ou encore une adresse plus simple "Sacré Coeur". Vous pouvez également entrer des coordonnées GPS (latitude, longitude) comme "127,86, -77,98".
+
+Une fois ces informations entrées, vous pourrez visualiser les prévisions métérologiques, un graphique s'affichera également.
+
+Par exemple :
+
+```{r, eval=FALSE}
+get_forecast("Sacre Coeur")
+```
+
+### Démonstration d'utilisation avec 3 exemples
+
+```{r, echo=FALSE, message=FALSE}
+library(devtools)
+library(httr2)
+library(jsonlite)
+library(tibble)
+library(purrr)
+library(tidygeocoder)
+library(usethis)
+library(roxygen2)
+library(usethis)
+library(lubridate)
+library(ggplot2)
+library(quarto)
+```
 
 ```{r}
-1 + 1
+library(olympicsWeather)
+```
+
+```{r}
+get_forecast("Stade de France")
+```
+
+```{r}
+get_forecast("Tahiti")
+```
+
+```{r}
+get_forecast(c(43.276703, 5.334791))
 ```
