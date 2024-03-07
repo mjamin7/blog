@@ -1,0 +1,18 @@
+---
+title: "Blog de Mathilde JAMIN"
+listing:
+  contents: posts
+  sort: "date desc"
+  type: default
+  categories: true
+  sort-ui: false
+  filter-ui: false
+page-layout: full
+title-block-banner: true
+---
+
+Bienvenue sur mon blog !
+
+Vous trouverez ici des exercices ainsi qu'un package réalisé lors du cours "R avancé et Git" donné par Monsieur Nedellec dans le cadre du Master 1 ECAP à l'IAE de Nantes.
+
+Le thème des exercices ainsi que du package porte sur les Jeux Olympiques de Paris 2024.

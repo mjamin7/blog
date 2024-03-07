@@ -1,0 +1,12 @@
+---
+title: "A mon sujet"
+image: profile.jpg
+about:
+  template: jolla
+  links:
+    - icon: github
+      text: Github
+      href: https://github.com
+---
+
+Je m'appelle JAMIN Mathilde et je suis étudiante Master 1 Econométrie Appliquée à l'IAE de Nantes.
