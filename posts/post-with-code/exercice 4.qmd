@@ -1,0 +1,792 @@
+## Exercice 4
+
+Cet exercice, nous a permis d'établir notre package final olympicsWeather
+
+### Question 1
+
+#### Installez les packages devtools, httr2, jsonlite
+
+```{r, eval=FALSE, message=FALSE, results='hide'}
+install.packages("devtools")
+install.packages("httr2")
+install.packages("jsonlite")
+install.packages("usethis")
+install.packages("htmltools")
+```
+
+```{r, results='hide'}
+library(devtools)
+library(httr2)
+library(jsonlite)
+library(tibble)
+library(purrr)
+library(tidygeocoder)
+library(usethis)
+library(roxygen2)
+library(usethis)
+library(lubridate)
+```
+
+### Question 2
+
+#### Dans une nouvelle session R, créer un nouveau projet de package intitulé olympicsWeather en utilisant la fonction create_package de la librairie usethis. Pourquoi n'est-il pas nécessaire d'installer explicitement usethis ?
+
+```{r, eval=FALSE, message=FALSE}
+usethis::create_package("olympicsWeather")
+```
+
+### Question 3
+
+#### Créer un nouveau script R intitulé get_weather_forecast en utilisant la fonction usethis::use_r().
+
+```{r, eval=FALSE, message=FALSE}
+usethis::use_r("get_weather_forecast")
+```
+
+### Question 4
+
+#### Sans implémenter la fonction pour l'instant, écrivez une requête d'api en utilisant la librairie httr2 que vous aurez préalablement installé.
+
+• l'url de l'api open-api est la suivante: https://api.open-meteo.com/v1/forecast\\
+
+• vous utiliserez les fonctions request, req_url_query, req_perform, resp_body_json pour passer la requête. Ces instructions peuvent se chaîner avec des pipes. La fonction request permet d'initialiser l'objet de request en passant l'url de l'api. La fonction req_url_query permet de passer différents paramètres à la requête, quand req_perform exécute la requête et récupère les résultats dans la session R. Enfin, la fonction resp_body_json extrait les données retournées en json du résultat de la requête. Vous pourrez utiliser la fonction tibble::as_tibble() pour convertir en tibble la table retournée.\\
+
+• pour la première requête, nous souhaitons obtenir la prévision météo aux coordonnées géographiques c(48.85, 2.35)\\
+
+•nous souhaitons obtenir les informations de températures, de températures ressenties, de probabilité de précipitation, et de quantités de précipitations. Indice, vous devrez passer le paramètre suivant (entre autres) hourly= c("temperature_2m", "apparent_temperature", "precipitation_probability", "precipitation") à la fonction req_url_query
+
+```{r}
+url <- "https://api.open-meteo.com/v1/forecast"
+```
+
+```{r}
+request(url) |>
+
+  req_url_query(latitude=48.85,longitude=2.35, hourly=c("temperature_2m","apparent_temperature","precipitation_probability", "precipitation"), .multi = "comma"
+
+  ) |>
+
+  req_perform() |>
+
+  resp_body_json() |>
+
+  tibble::as_tibble() |> View()
+```
+
+### Question 5
+
+#### Décrivez le résultat. Qu'avons nous obtenu suite à notre requête ? Quels paramètres souhaitons nous changer si nous voulons pouvoir récupérer les prévisions météo pour tous les sites des JOs ?
+
+Suite à notre requête, nous avons obtenus un tibble pour l'endroit se situant à la latitude 48.85 et la longitude 2.85.
+
+Dans ce tibble, nous retrouvons donc une ligne correspondant à la date avec le fuseau horaire, la seconde ligne correspond aux températures, la troisième à l'humidité, la quatrième à la probabilité des précipitations et enfin la dernière aux précipitations comprenant la pluie, les averses et la neige (cf documentation : https://open-meteo.com/en/docs/)
+
+### Question 6
+
+#### L'objectif est donc d'implémenter une fonction get_weather_forecast pour récupérer une table de prévisions météo à une coordonnées GPS donnée. Avant d'implémenter cette fonction accessible à l'utilisateur, nous souhaitons implémenter plusieurs fonctions internes
+
+Nous devons donc établir différentes fonctions :
+
+### Question 7
+
+#### Fonction perform_request:
+
+• la fonction perform request prend en entrée deux arguments: latitude et longitude\\
+
+• elle effectue la requête sur l'api publique ci-dessus, et retourne le contenu du body sous forme d'une tibble (exactement comme dans la question 4)
+
+```{r}
+#' Effectue une requête à l'API pour obtenir les prévisions météo.
+
+#'
+
+#' Cette fonction prend en entrée les coordonnées GPS (latitude, longitude) et retourne
+
+#' les prévisions météo sous forme de tibble.
+
+#'
+
+#' @param lat La latitude (numeric).
+
+#' @param lon La longitude (numeric).
+
+#'
+
+#' @export
+
+perform_request <- function(lat, lon) {
+
+  url <- "https://api.open-meteo.com/v1/forecast"
+
+    request(url) |>
+
+    req_url_query(latitude=lat,longitude=lon, hourly= c("temperature_2m","apparent_temperature","precipitation_probability","precipitation"), .multi = "comma"
+
+    ) |>
+
+    req_perform() |>
+
+    resp_body_json() |>
+
+    as_tibble ()
+
+}
+```
+
+```{r}
+resp <- perform_request(48.85, 2.35)
+```
+
+### Question 8
+
+#### Fonction unnest_response:
+
+• les résultats obtenus après la requête n'étant pas bien formattés, il faut écrire une fonction pour transformer la forme de la tibble obtenue\\
+
+• la fonction en entrée prendre une tibble au format issu de la requête\\
+
+• et retournera les mêmes données au schema suivant:\\
+
+\-- date_heure: heure au tz UTC\\
+
+\-- tempature_celsius: données de température\\
+
+\-- temperature_ressentie_celsius: données de température ressentie\\
+
+\-- precipation_proba: probabilité de pluie\\
+
+\-- precipitation: precipitation en mm
+
+```{r}
+#' Transforme la tibble obtenue de la requête en une structure de données spécifique.
+
+#'
+
+#' Cette fonction prend en entrée la tibble obtenue de la requête et la transforme pour
+
+#' obtenir une nouvelle tibble avec les informations nécessaires.
+
+#'
+
+#' @param extraction sert a extraire les différentes colonnes de la liste de données
+
+#'
+
+#' @export
+
+unnest_response <- function(extraction){
+
+  hourly_data <- extraction$hourly
+
+  if (length(hourly_data) == 0) {
+
+    stop("Aucune donnée dans la colonne 'hourly'.")
+
+  }
+
+  output_tibble <- tibble(
+
+    "date_heure" = ymd_hm(unlist(hourly_data[[1]])),
+
+    "temperature_celsius" = unlist(hourly_data[[2]]),
+
+    "temperature_ressentie_celsius" = unlist(hourly_data[[3]]),
+
+    "precipitation_proba" = unlist(hourly_data[[4]]),
+
+    "precipitation" = unlist(hourly_data[[5]])
+
+  )
+
+}
+```
+
+```{r}
+resp <- perform_request(48.85, 2.35)
+
+unnested_table <- unnest_response(resp)
+```
+
+```{r, results='hide'}
+unnested_table
+```
+
+### Question 9
+
+#### Tests unitaires pour la fonction unnest_response:
+
+• créez un script de tests en utilisant la fonction usethis::use_test("unnest_response")\\
+
+• dans ce script, créez un jeu de données minimal pour tester le comportement de la fonction\\
+
+• testez la fonction, en proposant plusieurs tests unitaires. Exemple de tests unitaires:\\
+
+\-- testez que la fonction renvoie le bon nombre de lignes\\
+
+\-- testez que les valeurs de la colonne temperature correspondent aux valeur proposées en entrée\\
+
+\-- testez le nom des colonnes en sortie\\
+
+\-- testez le nombre de colonnes en sortie
+
+```{r, eval=FALSE}
+usethis::use_test("unnest_response")
+```
+
+Résultat de cette commande :
+
+```{r, eval=FALSE}
+test_that("multiplication works", {
+
+  expect_equal(2 * 2, 4)
+
+})
+```
+
+```{r, eval = FALSE}
+✔ Setting active project to 'C:/Users/mathi/OneDrive/Documents/M1 ECAP/Semestre 2/R avancé et Git/Exercice 4/olympicsWeather'
+
+✔ Adding 'testthat' to Suggests field in DESCRIPTION
+
+✔ Adding '3' to Config/testthat/edition
+
+✔ Creating 'tests/testthat/'
+
+✔ Writing 'tests/testthat.R'
+
+✔ Writing 'tests/testthat/test-unnest_response.R'
+
+• Modify 'tests/testthat/test-unnest_response.R'
+```
+
+Test :
+
+```{r, eval=FALSE}
+library(testthat)
+
+#Jeu de données 
+
+context("unnest_response")
+
+mock_data <- tibble::tibble(
+
+  hourly = list(
+
+    list("2024-02-24 12:00:00", "2024-02-24 13:00:00"),
+
+    list(22, 28),
+
+    list(17, 13),
+
+    list(0.7, 0.4),
+
+    list(0.9, 0.3)
+
+  )
+
+)
+
+mock_data_df <- data.frame(do.call(cbind, mock_data$hourly))
+
+colnames(mock_data_df) <- c("date_heure", "temperature_celsius", "temperature_ressentie_celsius", "precipitation_proba", "precipitation")
+
+print(mock_data_df)
+
+#Test unitaire
+
+#Bon nombre de lignes
+
+test_that("La fonction renvoie le bon nombre de lignes", {
+
+  output_tibble <- unnest_response(mock_data)
+
+  expect_equal(nrow(output_tibble), nrow(mock_data_df))
+
+})
+
+#Bonne température
+
+test_that("La fonction renvoie le bon nombre de lignes", {
+
+  output_tibble <- unnest_response(mock_data)
+
+  expect_true(all(output_tibble[[2]] == mock_data_df[[2]]),
+
+              info = "Les colonnes ne sont pas égales.")
+
+})
+
+#Bon nom des colonnes 
+
+test_that("Les valeurs de la colonne temperature correspondent aux valeurs d'entrée", {
+
+  output_tibble <- unnest_response(mock_data)
+
+  expect_true(all.equal(names(output_tibble), names(mock_data_df)),
+
+              info = "Les noms de colonnes ne sont pas égaux.")
+
+})
+
+#Bon nombre de colonnes
+
+test_that("Le nombre de colonnes en sortie est correct", {
+
+  output_tibble <- unnest_response(mock_data)
+
+  expect_equal(ncol(output_tibble), ncol(mock_data_df),
+
+               info = "Le nombre de colonnes n'est pas égal.")
+
+})
+
+usethis::use_test("unnest_response")
+
+test_file("tests/testthat/test-unnest_response.R »)
+```
+
+Résultat du test : A l'aide de Rodolphe Mocaër
+
+```{r, eval=FALSE}
+#Library
+
+  library(testthat) 
+
+#Jeu de données
+
+ heure au tz UTC données de température
+
+1 2024-02-24 12:00:00                     20
+
+2 2024-02-24 13:00:00                     22
+
+  données de température ressentie probabilité de pluie
+
+1                               18                  0.2
+
+2                               20                  0.3
+
+  precipitation en mm
+
+1                 0.5
+
+2                 0.8
+
+#Test unitaire
+
+#Bon nombre de ligne
+
+Test passed 
+
+#Bonne temperature
+
+Test passed 
+
+#Bon nom de colonne 
+
+Test passed  
+
+#Bon nombre de colonne 
+
+Test passed  
+
+usethis::use_test("unnest_response") 
+
+✔ Setting active project to 'C:/Users/mathi/OneDrive/Documents/M1 ECAP/Semestre 2/R avancé et Git/Exercice 4/olympicsWeather'
+
+• Modify 'tests/testthat/test-unnest_response.R'
+
+test_file("tests/testthat/test-unnest_response.R »)`
+```
+
+### Question 10
+
+#### Lors de la séance 1, nous avons développé un outil permettant de trouver les coordonnées GPS à partir d'un nom d'adresse (en utilisant le package tidygeocoder et la fonction reverse_geocode). Nous souhaitons que l'utilisateur puisse obtenir des prévisions météos à partir de:
+
+• coordonnées GPS, i.e un vecteur numérique de taille 2\\
+
+• un nom de site olympique ou une adresse. A partir du code de la séance 1, définissez une fonction address_to_gps convertissant une adresse en coordonnées gps sous la forme d'un vecteur numérique de taille 2.\\
+
+Définir une fonction get_forecast générique, et deux implémentations get_forecast.character et get_forecast.numeric
+
+```{r}
+#' Convertit une adresse en coordonnées GPS.
+
+#'
+
+#' Cette fonction prend en entrée une adresse et renvoie les coordonnées GPS sous
+
+#' forme d'un vecteur numérique de taille 2.
+
+#'
+
+#' @param adresse Une adresse sous forme de texte.
+
+#'
+
+#' @return Un vecteur numérique de taille 2 avec les coordonnées GPS (latitude, longitude).
+
+#'
+
+#' @export
+
+address_to_gps <- function(adresse) {
+
+  df_adresse <- data.frame("nom" = character(), addr = character(), stringsAsFactors = FALSE)
+
+  df_adresse <- rbind(df_adresse, data.frame(addr = adresse), stringsAsFactors = FALSE)
+
+  resultat_geocodage <- df_adresse |>
+
+    geocode(addr, method = 'arcgis')
+
+  df_adresse <- resultat_geocodage
+
+}
+```
+
+```{r}
+resultat_final <- address_to_gps("9 Quai Henri Barbusse, Nantes, 44000, FRANCE")
+
+print(resultat_final)
+```
+
+### Question 11
+
+#### Implémentez une fonction interne get_gps_coordinate renvoyant des coordonnées x,y pour une adresse en utilisant les fonctions de la question 10 (ou de la semaine 1).
+
+```{r}
+#' Récupère les coordonnées GPS pour une adresse donnée.
+
+#'
+
+#' Cette fonction prend en entrée une adresse et renvoie les coordonnées GPS sous
+
+#' forme d'un vecteur numérique de taille 2 en utilisant la fonction address_to_gps.
+
+#'
+
+#' @param address Une adresse sous forme de texte.
+
+#'
+
+#' @return Un vecteur numérique de taille 2 avec les coordonnées GPS (latitude, longitude).
+
+#'
+
+#' @export
+
+get_gps_coordinate <- function(address) {
+
+  coord_df <- address_to_gps(address)
+
+  latitude <- coord_df$lat
+
+  longitude <- coord_df$long
+
+  coordinates <- c(latitude[1], longitude[1])
+
+}
+```
+
+```{r}
+coordinates <- get_gps_coordinate("9 Quai Henri Barbusse, Nantes, 44000, FRANCE")
+
+print(coordinates)
+```
+
+### Question 12
+
+### Implémentez la fonction get_forecast.numeric. Cette fonction prend en entrée un argument xy, contenant un vecteur numérique de coordonnées x,y (latitude, longitude) de taille 2. Si cette condition n'est pas vérifiée, alors la fonction devra déclarer une erreur. La fonction appelera les deux fonctions perform_request et unnest_response avant de retourner la tibble de résultat.
+
+```{r}
+#' Obtient les prévisions météo en fonction des coordonnées GPS.
+
+#'
+
+#' Cette fonction prend en entrée un vecteur numérique de taille 2 (latitude, longitude)
+
+#' et renvoie les prévisions météo sous forme de tibble.
+
+#'
+
+#' @param xy Un vecteur numérique de taille 2 représentant les coordonnées GPS.
+
+#'
+
+#' @return Un tibble avec les prévisions météo.
+
+#'
+
+#' @seealso \code{\link{perform_request}}, \code{\link{unnest_response}}
+
+#'
+
+#' @export
+
+get_forecast.numeric <- function(xy) {
+
+  if (!is.numeric(xy) || length(xy) != 2) {
+
+    stop("L'argument xy doit être un vecteur numérique de taille 2 (latitude, longitude).")
+
+  }
+
+  response_table <- perform_request(xy[1], xy[2])
+
+  unnested_table <- unnest_response(response_table)
+
+}
+```
+
+```{r}
+xy_coordinates <- c(48.85, 2.35)
+
+forecast_result <- get_forecast.numeric(xy_coordinates)
+
+print(forecast_result)
+```
+
+### Question 13
+
+#### Implémentez la fonction get_forecast.character. Cette fonction prend en entrée un argument address, de type character, de taille 1. Si cette condition n'est pas vérifiée, alors la fonction devra déclarer une erreur. La fonction appelera les deux fonctions address_to_gps puis la fonction get_forecast en passant le résultat de l'appel à address_to_gps.
+
+```{r}
+#' Obtient les prévisions météo en fonction d'une adresse.
+
+#'
+
+#' Cette fonction prend en entrée une adresse, utilise la fonction address_to_gps
+
+#' pour obtenir les coordonnées GPS, puis appelle la fonction get_forecast.numeric.
+
+#'
+
+#' @param address Une adresse sous forme de texte.
+
+#'
+
+#' @return Un tibble avec les prévisions météo.
+
+#'
+
+#' @seealso \code{\link{address_to_gps}}, \code{\link{get_forecast.numeric}}
+
+#'
+
+#' @export
+
+get_forecast.character <- function(address) {
+
+  if (!is.character(address) || length(address) != 1) {
+
+    stop("L'argument address doit être de type character et de taille 1.")
+
+  }
+
+  coordinates <- get_gps_coordinate(address)
+
+  response_table <- perform_request(coordinates[1],coordinates[2])
+
+  unnested_table <- unnest_response(response_table)
+
+}
+```
+
+```{r}
+forecast_result <- get_forecast.character("9 Quai Henri Barbusse, Nantes, 44000, FRANCE")
+
+print(forecast_result)
+```
+
+### Question 14
+
+#### Documentez la fonction get_forecast en utilisant les balises Roxygen appropriées
+
+```{r, eval=FALSE}
+#' Obtient les prévisions météo en fonction des coordonnées GPS ou de l'adresse.
+
+#'
+
+#' Cette fonction est générique et permet d'obtenir les prévisions météo en fonction des coordonnées GPS
+
+#' (latitude, longitude) ou d'une adresse spécifiée.
+
+#'
+
+#' @param x Un vecteur numérique de taille 2 représentant les coordonnées GPS (latitude, longitude).
+
+#' @param address Une adresse spécifiée en tant que caractère.
+
+#'
+
+#' @return Une tibble contenant les prévisions météo, comprenant la date, l'heure UTC, la température, la
+
+#' température ressentie, la probabilité de précipitation, et la quantité de précipitation.
+
+#'
+
+#' @seealso \code{\link{get_forecast.numeric}} et \code{\link{get_forecast.character}}
+
+#'
+
+#' @examples
+
+#' # Obtenir les prévisions météo pour des coordonnées GPS
+
+#' xy_coordinates <- c(48.85, 2.35)
+
+#' forecast_result <- get_forecast(xy_coordinates)
+
+#' print(forecast_result)
+
+#'
+
+#' # Obtenir les prévisions météo pour une adresse
+
+#' address_result <- get_forecast("9 Quai Henri Barbusse, Nantes, 44000, FRANCE")
+
+#' print(address_result)
+
+#'
+
+#' @export
+
+#' @param x Un vecteur numérique de taille 2 représentant les coordonnées GPS (latitude, longitude).
+
+#' @param address Une adresse spécifiée en tant que caractère.
+
+#' @return Une tibble contenant les prévisions météo.
+
+get_forecast <- function(x) {
+
+  if (is.numeric(x)) {
+
+    result <- get_forecast.numeric(x)
+
+  } else if (is.character(x)) {
+
+    result <- get_forecast.character(x)
+
+  } else {
+
+    stop("L'un des arguments 'x' ou 'address' doit être spécifié.")
+
+  }
+
+  print(graph_function(result))
+
+  return(result)
+
+}
+```
+
+### Question 15
+
+#### Mettez à jour le fichier DESCRIPTION. Assurez-vous d'avoir un NAMESPACE à jour en utilisant devtools::document
+
+```{r, eval=FALSE}
+Package: olympicsWeather
+
+Title: Obtention des previsions meteo pour les sites olympiques
+
+Version: 0.0.0.9000
+
+Author@R: person("JAMIN", "Mathilde", email = "mathilde.jamin@etu.univ-nantes.fr", role = c("aut", "cre"))
+
+Description: Ce package fournit des fonctionnalites pour obtenir les previsions meteo en fonction des coordonnees GPS ou des adresses des sites olympiques.
+
+License: GPL-3
+
+Encoding: UTF-8
+
+Roxygen: list(markdown = TRUE)
+
+RoxygenNote: 7.3.1
+
+Imports:
+
+    devtools,
+
+    httr2,
+
+    jsonlite,
+
+    tibble,
+
+    purrr,
+
+    tidygeocoder,
+
+    usethis,
+
+    roxygen2,
+
+    lubridate,
+
+    ggplot2
+```
+
+```{r, eval=FALSE}
+# Generated by roxygen2: do not edit by hand
+
+export(address_to_gps)
+
+export(get_forecast)
+
+export(get_forecast.character)
+
+export(get_forecast.numeric)
+
+export(get_gps_coordinate)
+
+export(graph_function)
+
+export(perform_request)
+
+export(unnest_response)
+```
+
+```{r, eval=FALSE}
+# Commande à réaliser dans la console :
+
+- document()
+
+- build()
+
+- devtools::install()
+```
+
+### Question Bonus
+
+#### Quelle stratégie employeriez-vous pour fournir une sortie visuelle aux utilisateurs ? Essayez de proposer une fonction dans le package pour rendre visuelle la sortie du package.
+
+Nous pouvons proposer de faire un graphique avec ggplot, dans un autre script R relié au précédent.
+
+```{r}
+library(ggplot2)
+
+#' Génère un graphique basé sur les données fournies.
+
+#'
+
+#' @param unnested_table Un tibble avec les données nécessaires pour le graphique.
+
+#' @return Un objet ggplot.
+
+graph_function <- function(unnested_table) {
+
+  ggplot(unnested_table, aes(x = as.POSIXct(date_heure), y = temperature_celsius)) +
+
+    geom_line(color = "navy", size = 1, linetype = "solid") +
+
+    labs(title = "Évolution de la Température",
+
+         x = "Date et Heure (GMT)",
+
+         y = "Température (°C)") +
+
+    theme_minimal()
+
+}
+```

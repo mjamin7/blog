@@ -1,0 +1,775 @@
+## Exercice 2
+
+Ce second exercice, nous a permis de travailler avec différentes base de données venant d'une liste. Ici aussi, nous avons extrait les informations principales et importantes de ces bases notamment à l'aide de la création de fonctions en manipulant des chaines des caractères.
+
+La collaboration de Rodolphe Mocaër a été essentielle pour la réalisation de la majorité de cet exercice, cette contribution sera explicitement mentionnée pour chaque question où son aide a été sollicitée.
+
+### Question 1
+
+#### Lancez la commande suivante :
+
+```{r, message=FALSE}
+library(rvest)
+
+library(purrr)
+
+library(stringr)
+
+library(tidyverse)
+
+library(dplyr)
+```
+
+```{r}
+list_tables <-
+
+session("https://fr.wikipedia.org/wiki/Liste_des_m%C3%A9daill%C3%A9s_olympiques") |>
+
+html_elements(".wikitable") |>
+
+html_table()
+```
+
+#### Que s'est-il passé ? Que contient l'objet list_tables ?
+
+```{r, results='hide'}
+list_tables
+```
+
+Cette liste contient 6 tables différentes de différentes dimensions.
+
+### Question 2
+
+#### Nous allons tout d'abord nous intéresser à la première table. Créez un objet intitulé data_medailles_sport_ete contenant le premier élément de list_tables. La table n'est pas bien formattée.
+
+```{r, results='hide'}
+data_medailles_sport_ete <- list_tables [[1]]
+
+print(data_medailles_sport_ete)
+```
+
+#### Supprimez la première colonne
+
+```{r}
+data_medailles_sport_ete <- data_medailles_sport_ete[,-1]
+```
+
+#### Supprimer la première ligne
+
+```{r}
+data_medailles_sport_ete <- data_medailles_sport_ete[-1,]
+```
+
+#### Supprimer le nom des colonnes
+
+```{r}
+colnames(data_medailles_sport_ete) <- NULL
+```
+
+#### Renommez les colonnes
+
+c("Discipline", "Annees", "Editions","Epreuves_2020", "Or", "Argent", "Bronze", "Total", "Athletes_medailles", "Athletes_or").
+
+```{r}
+colnames(data_medailles_sport_ete) <- c("Discipline", "Annees", "Editions",
+
+                                        "Epreuves_2020", "Or", "Argent", "Bronze", "Total",
+
+                                        "Athletes_medailles","Athletes_or")
+```
+
+#### Les colonnes Editions, Epreuves_2020, Or, Argent, Bronze, Total seront converties en colonnes d'entiers
+
+```{r, results='hide', message=FALSE}
+str(data_medailles_sport_ete)
+
+library(dplyr)
+
+data_medailles_sport_ete <- data_medailles_sport_ete |> 
+
+  mutate(Editions = as.integer(Editions),
+
+         Epreuves_2020 = as.integer(Epreuves_2020),
+
+         Or = as.integer(Or),
+
+         Argent = as.integer(Argent),
+
+         Bronze = as.integer(Bronze),
+
+         Total = as.integer(Total))
+
+print(data_medailles_sport_ete)
+
+str(data_medailles_sport_ete)
+```
+
+### Question 3
+
+#### Quelles sont les 3 disciplines avec le plus de médailles distribuées depuis le début de l'histoire des jeux olympiques ?
+
+```{r}
+resultats_medailles <- data_medailles_sport_ete |> 
+
+  group_by(Discipline) |> 
+
+  summarise(Total) |> 
+
+  arrange(desc(Total)) |> 
+
+  head(3)
+
+print(resultats_medailles)
+```
+
+Les 3 disciplines avec le plus de médailles distribuées depuis le début de l'histoire des JO sont :\\
+
+\- L'athlétisme
+
+\- La natation
+
+\- La lutte
+
+### Question 4
+
+#### Quelles sont les 3 disciplines avec le moins d'épreuves en 2020 ?
+
+```{r}
+moins_epreuve_2020 <- data_medailles_sport_ete |> 
+
+  group_by(Discipline) |> 
+
+  summarise(Epreuves_2020) |> 
+
+  arrange(Epreuves_2020) |> 
+
+  head(10)
+
+print(moins_epreuve_2020)
+```
+
+Les disciplines avec le moins d'épreuves en 2020 sont :\\
+
+\- Le football
+
+\- Le golf
+
+\- Le handball
+
+\- Le hockey sur gazon
+
+\- La natation synchronisée
+
+\- Le pentathlon moderne
+
+\- Le volley-ball
+
+\- Le water polo
+
+Il y en a donc 8.
+
+### Question 5
+
+#### La colonne Editions nous renseigne sur le nombre total d'apparence des disciplines aux JO d'été.
+
+#### Nous souhaitons vérifier ce calcul en implémentant notre propre fonction calcul_nb_editions_int. Dans un premier temps, la fonction calcul_nb_editions prendra en entrée un paramètre depuis, de type entier, qui représente depuis quelle année la discipline est au programme.
+
+```{r}
+calcul_nb_editions <- function(depuis_annee, data_medailles_sport_ete) {
+
+ 
+
+   #Extrayons les années de la colonne 'Années'
+
+  data_medailles_sport_ete$Annees <- as.character(data_medailles_sport_ete$Annees)
+
+  
+
+  #Utilision une expression régulière pour extraire les années de chaque cellule
+
+  data_medailles_sport_ete$Annees <- gsub(".*(\\d{4}).*", "\\1", data_medailles_sport_ete$Annees)
+
+  
+
+  #Convertissons la colonne Années en numérique
+
+  data_medailles_sport_ete$Annees <- as.numeric(data_medailles_sport_ete$Annees)
+
+  
+
+  #Filtrons les disciplines qui ont commencé à partir de 'depuis'
+
+  disciplines_filtrees <- subset(data_medailles_sport_ete, Annees >= depuis_annee)
+
+  
+
+  #Calculons le nombre total d'éditions pour chaque discipline
+
+  result <- aggregate(Editions ~ Discipline, disciplines_filtrees, sum)
+
+  
+
+  return(result)
+
+}
+```
+
+```{r, results='hide'}
+resultat <- calcul_nb_editions(1800, data_medailles_sport_ete)
+
+print(resultat)
+```
+
+Cela renvoit bien le bon nombre d'éditions.
+
+### Question 6
+
+#### Dans certains cas, les disciplines ont été au programme de façon discontinue. Proposez une nouvelle fonction calcul_nb_editions_str qui prendra cette fois-ci en entrée des chaînes de caractères. Par exemple, l'appel suivant: calcul_nb_editions_str("1896, 1904, depuis 1920") qui retournera la valeur 26.
+
+```{r}
+calcul_nb_editions_str <- function(chaine) {
+
+  # Utilisation d'une expression régulière pour extraire les années
+
+  annees <- as.numeric(regmatches(chaine, gregexpr("\\b\\d{4}\\b", chaine))[[1]])
+
+  
+
+  # Si aucune année n'est trouvée, chercher les occurrences de "depuis" dans la chaîne
+
+  if (length(annees) == 0) {
+
+    depuis_occurrences <- gregexpr("\\bdepuis\\b", chaine)
+
+    
+
+    # Si "depuis" est trouvé, extraire l'année après "depuis"
+
+    if (any(depuis_occurrences[[1]] > 0)) {
+
+      annees_depuis <- as.numeric(regmatches(chaine, gregexpr("\\b\\d{4}\\b", chaine, start = depuis_occurrences[[1]][1]))[[1]])
+
+      annees <- c(annees_depuis, max(annees_depuis))  # Utilisation de l'année après "depuis" comme début
+
+    } else {
+
+      return(0)  # Si ni année ni "depuis" n'est trouvé, renvoyer la valeur 0
+
+    }
+
+  }
+
+  
+
+  # Ajouter une correction pour les années manquantes (1940 et 1944)
+
+  annees_manquantes <- c(1940, 1944)
+
+  annees <- sort(unique(c(annees, annees_manquantes)))
+
+  
+
+  # Exclure les années sans éditions
+
+  annees <- annees[!(annees %in% c(1940, 1944))]
+
+  
+
+  # Calculons le nombre d'éditions en utilisant la différence entre la première et la dernière année
+
+  nb_editions <- max(annees) - min(annees) + 1
+
+  
+
+  return(nb_editions)
+
+}
+```
+
+```{r}
+resultat <- calcul_nb_editions_str("1896, 1904, depuis 1920")
+
+print(resultat)
+```
+
+Il y a 26 éditions entre 1920 et 2020 + deux éditions en 1896 et 1904 mais moins 2 éditions en 1940 et 1944 donc il faut bien que le résultat renvoie 26. Ici cela nous renvoie 25.
+
+Avec l'aide de Rodolphe Mocaër nous avons pu réaliser un second code afin de trouver la bonne réponse :
+
+```{r}
+calcul_nb_editions_str <- function(x) {
+
+  r <- str_split(x, ",", simplify = TRUE)
+
+  part <- ifelse(!grepl("(?i)depuis|[-—–—]", r[,]), "1", r[,])
+
+  return(part)
+
+}
+```
+
+```{r}
+calcul_nb_editions_int <- function(part) {
+
+  depuis_years <- str_extract_all(part, "(?i)depuis\\s+(\\d{4})") |> 
+
+    unlist() |> 
+
+    str_extract("\\d+")
+
+ 
+
+  Calcul_edition <- as.integer(depuis_years)
+
+  result <- (2024 - Calcul_edition) / 4 - ifelse(Calcul_edition < 1916, 3, ifelse(Calcul_edition < 1944, 2, 0))
+
+ 
+
+  part2 <- ifelse(grepl("(?i)depuis\\s+\\d{4}", part), as.character(result), part)
+
+ 
+
+  return(part2)
+
+}
+```
+
+```{r}
+calcul_final <- function(part2) {
+
+  part2_numerique <- as.numeric(part2)
+
+  resultat_final <- sum(part2_numerique)
+
+  return(resultat_final)
+
+}
+```
+
+```{r}
+calcul_nb_editions <- function(x) {
+
+  part1 <- calcul_nb_editions_str(x)
+
+  part2 <- calcul_nb_editions_int(part1)
+
+  resultat_final <- calcul_final(part2)
+
+  return(resultat_final)
+
+}
+```
+
+```{r}
+resultat2 <- calcul_nb_editions("1896, 1904, depuis 1920")
+
+print(resultat2)
+```
+
+Il y a bien 26 éditions.
+
+```{r}
+resultat3 <- calcul_nb_editions_str("1896, 1904, depuis 1920")
+
+print(resultat3)
+```
+
+### Question 7
+
+#### Définissez une fonction générique calcul_nb_editions et deux implémentations calcul_nb_editions.integer et calcul_nb_editions.character.
+
+#### Quels résultats donnent les appels :
+
+calcul_nb_editions(2000) et calcul_nb_editions("1904--1924, depuis 1948")
+
+```{r}
+calcul_nb_editions_str <- function(x) {
+
+  r <- str_split(x, ",", simplify = TRUE)
+
+  part <- ifelse(!grepl("(?i)depuis|[-—–—]", r[,]), "1", r[,])
+
+  return(part)
+
+}
+```
+
+```{r}
+calcul_nb_editions_int <- function(part) {
+
+  depuis_years <- str_extract_all(part, "(?i)depuis\\s+(\\d{4})") |> 
+
+    unlist() |> 
+
+    str_extract("\\d+")
+
+ 
+
+  Calcul_edition <- as.integer(depuis_years)
+
+  result <- (2024 - Calcul_edition) / 4 - ifelse(Calcul_edition < 1916, 3, ifelse(Calcul_edition < 1944, 2, 0))
+
+ 
+
+  part2 <- ifelse(grepl("(?i)depuis\\s+\\d{4}", part), as.character(result), part)
+
+ 
+
+  return(part2)
+
+}
+```
+
+```{r}
+calcul_nb_editions.character <- function(part2) {
+
+  dates <- str_match(part2, "([file://\\d{4})\\s*[-—–]\\s*(\\d{4}]\\d{4})\\s*[-—–]\\s*(\\d{4})")
+
+  a <- as.integer(dates[1, 2])
+
+  b <- as.integer(dates[1, 3])
+
+ 
+
+  x <- ifelse(a < 1915 & b > 1917, 1,
+
+              ifelse(a < 1915 & b > 1945, 3,
+
+                     ifelse(1917 < a & a < 1939 & b > 1945, 2, 0)))
+
+ 
+
+  c_value <- (b - a) / 4 + 1 - x
+
+  part3 <- ifelse(grepl("(\\d{4})\\s*[-—–]\\s*(\\d{4})", part2), as.character(c_value), part2)
+
+  return(part3)
+
+}
+```
+
+```{r}
+calcul_final2 <- function(part3) {
+
+part3_numerique <- as.numeric(part3[grepl("^\\d+$", part3)])
+
+  resultat_final <- sum(part3_numerique)
+
+  return(resultat_final)
+
+}
+```
+
+```{r}
+calcul_nb_editions2 <- function(x) {
+
+  part1 <- calcul_nb_editions_str(x)
+
+  part2 <- calcul_nb_editions_int(part1)
+
+  part3 <- calcul_nb_editions.character(part2)
+
+  resultat_final <- calcul_final2(part3)
+
+ 
+
+  return(resultat_final)
+
+}
+```
+
+```{r}
+resultat3 <- calcul_nb_editions(2000)
+
+print(resultat3)
+```
+
+```{r}
+resultat4 <- calcul_nb_editions("1904–1924, depuis 1948")
+
+print(resultat4)
+```
+
+### Question 8
+
+#### En Athlétisme, le Finlandais Paavo Nurmi détient le record de médailles avec 12 médailles obtenues lors des JO d'hiver.
+
+##### Implémentez une fonction calcul_medailles_individuelles qui détermine le nombre de médaille maximal a été obtenu par un athlète lors d'olympiades. Note : s'il y a plusieurs athlètes à égalité, alors la cellule comporte plusieurs éléments, et une manipulation de la chaîne de caractères est nécessaire.
+
+```{r}
+calcul_medailles_individuelles2 <- function(data_medailles_sport_ete) {
+
+  total_medailles2 <- rowSums(data_medailles_sport_ete[, c("Or", "Argent", "Bronze")])
+
+  max_medailles2 <- max(total_medailles2)
+
+  athletes_with_max_medals2 <- data_medailles_sport_ete$Athletes_medailles[total_medailles2 == max_medailles2]
+
+  return(athletes_with_max_medals2)
+
+}
+```
+
+```{r}
+resultat4 <- calcul_medailles_individuelles2(data_medailles_sport_ete)
+
+print(resultat4)
+```
+
+Le même résultat ressort.
+
+### Question 9
+
+#### Quel est le top 3 des athlètes ? Vous utiliserez la fonction lapply pour appliquer la fonction calcul_medailles_individuelles à chaque élément de la colonne Athletes_medailles.
+
+```{r}
+all_athletes <- unlist(lapply(data_medailles_sport_ete$Athletes_medailles, function(athletes) {
+
+  calcul_medailles_individuelles2(data_medailles_sport_ete[data_medailles_sport_ete$Athletes_medailles == athletes, ])
+
+}))
+
+#Nettoyons les noms des athlètes en supprimant les informations sur les médailles
+
+cleaned_athletes <- gsub("\\s*\\(.*\\)", "", all_athletes)
+
+top_3_athletes <- head(sort(table(cleaned_athletes), decreasing = TRUE), 3)
+
+print(top_3_athletes)
+```
+
+Le top 3 des athlètes est :
+
+\- Ana Fernandez
+
+\- Andrei Lavrov
+
+\- Ben Ainslie
+
+Cependant, ce code ne semble pas fonctionner correctement. Il semble nous donner les 3 premiers athlètes par ordre alphabétique.
+
+Avec l'aide de Rodolphe Mocaër nous avons pu réaliser ce code.
+
+```{r}
+calcul_medailles_individuelles2 <- function(data_frame) {
+
+    medailles_df <- data.frame(
+
+      Athlete = gsub("[file://\\s*\\(.*\\]\\s*\\(.*\\)", "", data_frame$Athletes_medailles),
+
+      Pays = gsub(".*\\((\\w+)\\)", "\\1", data_frame$Athletes_medailles),
+
+      OR = as.integer(gsub(".*\\((\\d+)-\\d+-\\d+\\)", "\\1", data_frame$Athletes_medailles)),
+
+      ARGENT = as.integer(gsub(".*\\(\\d+-(\\d+)-\\d+\\)", "\\1", data_frame$Athletes_medailles)),
+
+      BRONZE = as.integer(gsub(".*\\(\\d+-\\d+-(\\d+)\\)", "\\1", data_frame$Athletes_medailles))
+
+    )
+
+   
+
+    medailles_df$TotalMedailles <- medailles_df$OR + medailles_df$ARGENT + medailles_df$BRONZE
+
+   
+
+    classement_df <- medailles_df[order(-medailles_df$TotalMedailles, -medailles_df$OR, -medailles_df$ARGENT, -medailles_df$BRONZE), ]
+
+   
+
+    meilleurs_athletes <- head(classement_df$Athlete, 3)
+
+   
+
+    phrase <- cat("Les 3 meilleurs athlètes sont:\n", paste("- ", meilleurs_athletes, collapse = "\n"))
+
+   
+
+    return(phrase)
+
+  }
+
+calcul_medailles_individuelles2(data_medailles_sport_ete)
+```
+
+Le top 3 des meilleurs athlètes est :
+
+\- Michael Phelp
+
+\- Larissa Latynina
+
+\- Edoardo Mangiarott
+
+### Question 10
+
+#### Quels sont les 3 nationalités les plus représentées, pour toutes les épreuves, au classement du nombre de médailles d'or individuelles reccueillies ?
+
+\- Pour ce faire, vous implémenterez une fonction extraire_nationalite_athlete qui à partir d'une chaine de charactère extraira le nombre d'athlète et leur nationalité. Par exemple, la chaine de caractère "Paavo Nurmi (FIN) (9-3-0) Carl Lewis (USA) (9-1-0)" donnera en sortie c("FIN" = 1, "USA" = 1).\\
+
+\- Vous utilisez la fonction lapply pour appliquer la fonction à toute la colonne\\
+
+\- Vous agrégerez les résultats de manière à sommer toutes les lignes et à obtenir les 3 nations les plus représentées, et leur effectif.
+
+```{r}
+#Fonction pour extraire la nationalité d'une chaîne de caractères
+
+extraire_nationalite_athlete <- function(chaine) {
+
+  nationalites <- regmatches(chaine, gregexpr("\\b[A-Z]{3}\\b", chaine, perl=TRUE))[[1]]
+
+  return(nationalites)
+
+}
+
+nationalites_list <- unlist(lapply(data_medailles_sport_ete$Athletes_or, extraire_nationalite_athlete))
+
+top_3_nationalites <- head(sort(table(nationalites_list), decreasing = TRUE), 3)
+
+print(top_3_nationalites)
+```
+
+Les 3 nations les plus représentés pour toutes les épreuves au classement du nombre de médailles d'or individuelles sont :
+
+\- Les Etats Unis avec 20
+
+\- La Chine avec 13
+
+\- Cuba avec 8
+
+### Question 11
+
+#### Intéressez-vous désormais au deuxième tableau contenu dans list_tables, faisant référence aux JO d'hiver.
+
+```{r, results='hide'}
+table_hiver <- list_tables [[2]]
+
+print(table_hiver)
+```
+
+#### Supprimez la première colonne
+
+```{r}
+table_hiver <- table_hiver[,-1]
+```
+
+#### Renommer les colonnes
+
+```{r}
+colnames(table_hiver) = c("Discipline", "Annee", "Editions", "Epreuves_2014", "Or", "Argent", "Bronze", "Total", "Athletes_medailles", "Athletes_or")
+```
+
+#### Supprimer la première ligne
+
+```{r}
+table_hiver <- table_hiver[-1,]
+```
+
+```{r, results='hide', message=FALSE}
+str(table_hiver)
+
+library(dplyr)
+
+table_hiver <- table_hiver |> 
+
+  mutate(Editions = as.integer(Editions),
+
+         Epreuves_2014 = as.integer(Epreuves_2014),
+
+         Or = as.integer(Or),
+
+         Argent = as.integer(Argent),
+
+         Bronze = as.integer(Bronze),
+
+         Total = as.integer(Total))
+
+print(table_hiver)
+
+str(table_hiver)
+```
+
+#### Appliquez les fonctions calcul_medailles_individuelles et extraire_nationalite_athlete aux deux dernières colonnes, à la manière des questions 9 et 10.
+
+#### Cette fois-ci, vous utiliserez la fonction appropriée du package purrr en lieu et place de lapply. Quelles sont les résultats ? Quelle différence voyez-vous entre lapply et les fonctions de purrr ?
+
+```{r}
+calcul_medailles_individuelles2_purrr <- function(data_frame) {
+
+    medailles_df <- data.frame(
+
+      Athlete = gsub("[file://\\s*\\(.*\\]\\s*\\(.*\\)", "", data_frame$Athletes_medailles),
+
+      Pays = gsub(".*\\((\\w+)\\)", "\\1", data_frame$Athletes_medailles),
+
+      OR = as.integer(gsub(".*\\((\\d+)-\\d+-\\d+\\)", "\\1", data_frame$Athletes_medailles)),
+
+      ARGENT = as.integer(gsub(".*\\(\\d+-(\\d+)-\\d+\\)", "\\1", data_frame$Athletes_medailles)),
+
+      BRONZE = as.integer(gsub(".*\\(\\d+-\\d+-(\\d+)\\)", "\\1", data_frame$Athletes_medailles))
+
+    )
+
+   
+
+    medailles_df$TotalMedailles <- medailles_df$OR + medailles_df$ARGENT + medailles_df$BRONZE
+
+   
+
+    classement_df <- medailles_df[order(-medailles_df$TotalMedailles, -medailles_df$OR, -medailles_df$ARGENT, -medailles_df$BRONZE), ]
+
+   
+
+    meilleurs_athletes <- head(classement_df$Athlete, 3)
+
+   
+
+    phrase <- cat("Les 3 meilleurs athlètes sont :\n", paste("- ", meilleurs_athletes, collapse = "\n"))
+
+   
+
+    return(phrase)
+
+}
+
+calcul_medailles_individuelles2_purrr(table_hiver)
+```
+
+Les 3 meilleurs athlètes sont donc :
+
+\- Marit Bjørgen
+
+\- Ole Einar Bjørndalen
+
+\- Ireen Wüst
+
+```{r}
+extraire_nationalite_athlete <- function(chaine) {
+
+  nationalites <- regmatches(chaine, gregexpr("\\b[A-Z]{3}\\b", chaine, perl=TRUE))[[1]]
+
+  return(nationalites)
+
+}
+
+nationalites_list <- map(table_hiver$Athletes_or, extraire_nationalite_athlete) |> 
+
+  flatten_chr()
+
+top_3_nationalites <- nationalites_list |> 
+
+  table() |> 
+
+  sort(decreasing = TRUE) |> 
+
+  head(3)
+
+print(top_3_nationalites)
+```
+
+Les 3 nations les plus représentés pour toutes les épreuves au classement du nombre de médailles d'or individuelles sont :
+
+\- Le Canada avec 8
+
+\- La Norvège avec 7
+
+\- L'Allemagne avec 6

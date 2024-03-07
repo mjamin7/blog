@@ -19,7 +19,7 @@ get_forecast("Sacre Coeur")
 
 ### Démonstration d'utilisation avec 3 exemples
 
-```{r, echo=FALSE, message=FALSE}
+```{r, echo=FALSE, message=FALSE, results='hide'}
 library(devtools)
 library(httr2)
 library(jsonlite)
